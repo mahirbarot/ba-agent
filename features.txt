@@ -1,0 +1,4 @@
+- features like multi language support
+- proper market research component
+- video talking and data fetching 
+- detailed srs , frd , task creation.
