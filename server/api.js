@@ -26,138 +26,51 @@ const groq = new Groq({
 
 // Document Generation Chain
 const documentGenerationPrompt = PromptTemplate.fromTemplate(`
-
   You are an expert business analyst and technical writer. Based on the following business requirements,
-  
   create comprehensive documentation including:
   
   1. Software Requirements Specification (SRS)
-  
   2. Functional Requirements Document (FRD)
-  
   3. Business Requirements Document (BRD)
-  
   4. UML Diagrams in PlantUML format
    
   Business Requirements:
-  
   {requirements}
    
-  You must respond with ONLY a valid JSON object using the following structure (replace the placeholder values with actual content):
-   
-  RESPONSE FORMAT:
-  
-  {{
-  
-    "srs": "<detailed SRS document content>",
-  
-    "frd": "<detailed FRD document content>",
-  
-    "brd": "<detailed BRD document content>",
-  
+  Respond with a JSON object in this exact format:
+  {
+    "srs": "detailed SRS content here",
+    "frd": "detailed FRD content here",
+    "brd": "detailed BRD content here",
     "umlDiagrams": [
-  
-      {{
-  
-        "name": "User Management Class Diagram",
-  
-        "type": "class",
-  
-        "content": "@startuml\\npackage \\"User Management\\" {{\\n  class User {{\\n    -id: UUID\\n    -username: String\\n    -email: String\\n    -password: String\\n    +login()\\n    +logout()\\n    +updateProfile()\\n  }}\\n  class UserProfile {{\\n    -userId: UUID\\n    -firstName: String\\n    -lastName: String\\n    +getFullName()\\n  }}\\n  User -- UserProfile\\n}}\\n@enduml"
-  
-      }},
-  
-      {{
-  
-        "name": "Login Sequence Diagram",
-  
-        "type": "sequence",
-  
-        "content": "@startuml\\nactor User\\nparticipant Frontend\\nparticipant AuthService\\nparticipant Database\\n\\nUser -> Frontend: Enter credentials\\nFrontend -> AuthService: login(username, password)\\nAuthService -> Database: validateCredentials()\\nDatabase --> AuthService: validation result\\nAuthService --> Frontend: authentication token\\nFrontend --> User: Show dashboard\\n@enduml"
-  
-      }}
-  
+      {
+        "name": "diagram name",
+        "type": "diagram type",
+        "content": "PlantUML content"
+      }
     ]
-  
-  }}
-   
-  Important:
-  
-  1. Do not include any text outside the JSON object
-  
-  2. Ensure all strings are properly escaped
-  
-  3. Use double quotes for all keys and string values
-  
-  4. Make the response a single, valid JSON object
-  
-  5. For PlantUML diagrams:
-  
-     - Always start with @startuml and end with @enduml
-  
-     - Use proper PlantUML syntax for the specified diagram type
-  
-     - Include all necessary relationships and elements
-  
-     - Use proper indentation and spacing
-  
-     - Escape special characters properly (use \\n for newlines)
-  
-     - Do not include any markdown or other formatting
-  
-     - The content should be directly compilable by a PlantUML processor
-  
-     - Follow the example format shown above
-  
-  6. Replace all placeholder text (including < and > characters) with actual content
-  
-  `);
-  
-   
-// Helper function to repair common JSON issues
-function repairJSON(str) {
-  // Remove any XML-like or markdown tags
-  str = str.replace(/<[^>]+>/g, '');
-  str = str.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-  
-  // Find the first { and last } to extract just the JSON part
-  const firstBrace = str.indexOf('{');
-  const lastBrace = str.lastIndexOf('}');
-  
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    str = str.slice(firstBrace, lastBrace + 1);
   }
   
-  // Fix common JSON issues
-  str = str
-    // Fix quotes
-    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":') // Ensure property names are properly quoted
-    .replace(/:\s*'([^']*)'/g, ':"$1"') // Replace single quotes with double quotes for values
-    .replace(/:\s*"([^"]*)'/g, ':"$1"') // Fix mismatched quotes
-    .replace(/:\s*'([^"]*)/g, ':"$1"') // Fix single quotes
-    // Fix common structural issues
-    .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-    .replace(/([}\]])\s*,\s*$/g, '$1') // Remove trailing commas at end
-    .replace(/}\s*{/g, '},{') // Fix missing commas between objects
-    .replace(/]\s*{/g, ',{') // Fix missing commas between array and object
-    .replace(/}\s*\[/g, ',[') // Fix missing commas between object and array
-    .replace(/]\s*\[/g, ',[') // Fix missing commas between arrays
-    // Clean whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
+  Important:
+  1. Use double quotes for all strings
+  2. Properly escape all special characters
+  3. Each document should be a single string
+  4. UML diagrams must be valid PlantUML syntax
+  5. Do not include any text outside the JSON object
+`);
   
-  return str;
-}
-
-// Helper function to use Groq for completions
-async function getGroqCompletion(prompt) {
+   
+// Helper function to get Groq completion with better error handling
+async function getGroqCompletion(prompt, isDocumentGeneration = false) {
   try {
     console.log('Sending request to Groq API with prompt:', prompt);
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         { 
           role: "system", 
-          content: "You are a helpful assistant that always responds with valid JSON. Never include any text outside the JSON structure. Never include XML-like tags. Always use double quotes for keys and string values. Never include markdown formatting. Never include any text after the closing brace of the JSON object. Never include any explanations or additional text."
+          content: isDocumentGeneration 
+            ? "You are a helpful assistant that always responds with a valid JSON object containing document content. Use double quotes for all keys and string values. Properly escape all special characters."
+            : "You are a helpful assistant that always responds with valid JSON arrays. Always return an array of objects, even for single items."
         },
         { 
           role: "user", 
@@ -165,59 +78,73 @@ async function getGroqCompletion(prompt) {
         }
       ],
       model: "mistral-saba-24b",
-      temperature: 0.0, // Reduce temperature to get more consistent JSON
+      temperature: 0.1,
       max_tokens: 4096,
       top_p: 1,
       stream: false,
       stop: null
     });
     
-    console.log('Received raw response from Groq:', chatCompletion);
-    let content = chatCompletion.choices[0]?.message?.content || '';
-    
-    // Log the raw content before cleaning
-    console.log('Raw content before cleaning:', content);
-    
-    // First pass: Basic cleaning
-    content = content.trim();
-    
-    // Try parsing the raw content first
-    try {
-      return JSON.stringify(JSON.parse(content));
-    } catch (initialParseError) {
-      console.log('Initial parse failed, attempting repair...');
-      
-      // Second pass: Repair and try again
-      const repairedContent = repairJSON(content);
-      console.log('Repaired content:', repairedContent);
-      
+    if (!chatCompletion?.choices?.[0]?.message?.content) {
+      throw new Error('Empty or invalid response from Groq API');
+    }
+
+    let content = chatCompletion.choices[0].message.content.trim();
+    console.log('Raw content from Groq:', content);
+
+    // Handle document generation format differently
+    if (isDocumentGeneration) {
       try {
-        return JSON.stringify(JSON.parse(repairedContent));
-      } catch (repairParseError) {
-        console.log('Repair parse failed, attempting final fallback...');
-        
-        // Final attempt: Try to extract any valid JSON object
-        const jsonRegex = /\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}/g;
-        const matches = repairedContent.match(jsonRegex);
-        
-        if (matches && matches.length > 0) {
-          for (const match of matches) {
-            try {
-              return JSON.stringify(JSON.parse(match));
-            } catch (e) {
-              continue;
-            }
-          }
-        }
-        
-        throw new Error(`Failed to parse JSON after all repair attempts: ${repairParseError.message}`);
+        // Try parsing as is first
+        return JSON.parse(content);
+      } catch (parseError) {
+        // If parsing fails, try to repair the JSON
+        const repaired = repairDocumentJSON(content);
+        return JSON.parse(repaired);
       }
+    } else {
+      // Handle array responses
+      if (content.startsWith('{') && content.endsWith('}')) {
+        content = `[${content}]`;
+      }
+      const parsed = JSON.parse(content);
+      return Array.isArray(parsed) ? parsed : [parsed];
     }
   } catch (error) {
-    console.error("Error with Groq API:", error.message);
-    console.error("Full error object:", JSON.stringify(error, null, 2));
+    console.error("Detailed Groq API Error:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      content: error.response?.content,
+    });
     throw new Error(`Groq API Error: ${error.message}`);
   }
+}
+
+// Add a specific repair function for document JSON
+function repairDocumentJSON(str) {
+  // Remove any non-JSON content
+  str = str.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+  
+  // Fix common JSON issues
+  str = str
+    // Fix quotes
+    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+    .replace(/:\s*'([^']*)'/g, ':"$1"')
+    .replace(/:\s*"([^"]*)'/g, ':"$1"')
+    // Fix newlines in strings
+    .replace(/\n(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\\n')
+    // Fix multiple spaces
+    .replace(/\s+/g, ' ')
+    // Remove trailing commas
+    .replace(/,(\s*[}\]])/g, '$1')
+    // Fix missing quotes around string values
+    .replace(/:\s*([^[{}\],\s]+)/g, ':"$1"')
+    // Ensure proper escaping of backslashes
+    .replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
+    .trim();
+
+  return str;
 }
 
 // API Routes with Groq implementation
@@ -233,36 +160,41 @@ app.post('/api/generate-documents', async (req, res) => {
     const prompt = await documentGenerationPrompt.format({ requirements });
     console.log('Formatted prompt:', prompt);
     
-    const completion = await getGroqCompletion(prompt);
+    const completion = await getGroqCompletion(prompt, true); // Pass true for document generation
     console.log('Raw completion:', completion);
     
-    try {
-      // Parse the JSON response
-      const result = JSON.parse(completion);
-      
-      // Validate the response structure
-      if (!result.srs || !result.frd || !result.brd || !Array.isArray(result.umlDiagrams)) {
-        throw new Error('Invalid response structure from AI');
-      }
-      
-      console.log('Parsed result:', result);
-      res.json(result);
-    } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
-      console.error('Raw completion that failed to parse:', completion);
-      res.status(500).json({ 
-        error: 'Failed to parse AI response',
-        details: parseError.message,
-        rawResponse: completion
-      });
-    }
+    // Validate the response structure
+    const validatedResult = {
+      srs: typeof completion.srs === 'string' ? completion.srs : '',
+      frd: typeof completion.frd === 'string' ? completion.frd : '',
+      brd: typeof completion.brd === 'string' ? completion.brd : '',
+      umlDiagrams: Array.isArray(completion.umlDiagrams) ? completion.umlDiagrams : []
+    };
+    
+    // Ensure UML diagrams have required fields
+    validatedResult.umlDiagrams = validatedResult.umlDiagrams.map(diagram => ({
+      name: diagram.name || 'Untitled Diagram',
+      type: diagram.type || 'unknown',
+      content: diagram.content || ''
+    }));
+    
+    console.log('Validated result:', validatedResult);
+    res.json(validatedResult);
   } catch (error) {
     console.error('Error generating documents:', error);
     console.error('Full error object:', JSON.stringify(error, null, 2));
+    
+    // Return a more structured error response with fallback empty document
     res.status(500).json({ 
       error: error.message,
-      stack: error.stack,
-      details: 'Error occurred while processing the request'
+      details: 'Error occurred while processing the request',
+      errorType: 'API_ERROR',
+      fallbackData: {
+        srs: '',
+        frd: '',
+        brd: '',
+        umlDiagrams: []
+      }
     });
   }
 });
@@ -455,6 +387,7 @@ app.post('/api/assign-tasks', async (req, res) => {
       2. Try to distribute work evenly among team members
       3. Assign tasks to the most qualified team member
       4. Consider task dependencies when assigning
+      5. Always return an array of objects, even for a single task
     `;
     
     console.log('Sending task assignment prompt to Groq:', prompt);
@@ -463,24 +396,30 @@ app.post('/api/assign-tasks', async (req, res) => {
     
     try {
       const result = JSON.parse(completion);
-      const assignments = Array.isArray(result) ? result : result.assignments;
       
-      // Validate assignments
-      assignments.forEach(assignment => {
-        if (!assignment.assignedTo || typeof assignment.confidence !== 'number') {
-          throw new Error(`Invalid assignment structure: ${JSON.stringify(assignment)}`);
-        }
-      });
+      // Ensure we have an array of assignments
+      const assignments = Array.isArray(result) ? result : [result];
       
-      res.json(assignments);
+      // Validate each assignment
+      const validatedAssignments = assignments.map(assignment => ({
+        ...assignment,
+        assignedTo: assignment.assignedTo || 'Unassigned',
+        confidence: typeof assignment.confidence === 'number' ? assignment.confidence : 0
+      }));
+      
+      res.json(validatedAssignments);
     } catch (parseError) {
       console.error('Error parsing assignment response:', parseError);
       console.error('Raw completion that failed to parse:', completion);
-      res.status(500).json({ 
-        error: 'Failed to parse AI response',
-        details: parseError.message,
-        rawResponse: completion
-      });
+      
+      // Return a fallback assignment
+      const fallbackAssignments = tasks.map(task => ({
+        ...task,
+        assignedTo: 'Unassigned',
+        confidence: 0
+      }));
+      
+      res.json(fallbackAssignments);
     }
   } catch (error) {
     console.error('Error assigning tasks:', error);
