@@ -134,13 +134,28 @@ const apiClient = {
     }
   },
   
-  createJiraTasks: async (assignedTasks, projectKey) => {
+  createJiraTasks: async (tasks) => {
     try {
-      const response = await axios.post(`${API_URL}/create-jira-tasks`, { assignedTasks, projectKey });
+      // Convert tasks to a simpler format with just the necessary fields
+      const simplifiedTasks = tasks.map(task => ({
+        id: task.id,
+        name: task.name,
+        description: task.description
+      }));
+      
+      console.log('Sending tasks to Jira:', simplifiedTasks);
+      const response = await axios.post(`${API_URL}/create-jira-tasks`, { tasks: simplifiedTasks });
+      
+      console.log('Jira creation response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error creating Jira tasks:', error.response?.data || error.message);
-      throw error;
+      console.error('Error creating Jira tasks:', error);
+      // Log more details for debugging
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      throw new Error(error.response?.data?.error || 'Failed to create Jira tasks');
     }
   },
 };

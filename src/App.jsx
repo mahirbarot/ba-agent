@@ -340,14 +340,38 @@ function App() {
   };
 
   const handleJiraTaskCreation = async () => {
-    if (assignedTasks.length === 0) return;
+    if (!tasks.length) {
+      setError("No tasks available to add to Jira");
+      return;
+    }
+    
+    // Use tasks directly if no assigned tasks yet
+    const tasksToSend = assignedTasks.length > 0 ? assignedTasks : tasks;
     
     setLoading(true);
     try {
-      const jira = await apiClient.createJiraTasks(assignedTasks, jiraProjectKey);
-      setJiraTasks(jira);
+      console.log('Creating Jira tasks for:', tasksToSend);
+      
+      const response = await apiClient.createJiraTasks(tasksToSend);
+      
+      if (response.success) {
+        // Show success message with count information
+        setError(null);
+        alert(`Successfully created ${response.createdCount} tasks in Jira${response.failedCount > 0 ? ` (${response.failedCount} failed)` : ''}`);
+        
+        // Save the created tasks info
+        setJiraTasks(response.createdTasks || []);
+        
+        // Log any errors that occurred
+        if (response.errors && response.errors.length > 0) {
+          console.warn('Some tasks failed to create in Jira:', response.errors);
+        }
+      } else {
+        throw new Error(response.error || 'Failed to create Jira tasks');
+      }
     } catch (error) {
       console.error("Error creating Jira tasks:", error);
+      setError(`Failed to create Jira tasks: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -926,7 +950,7 @@ function App() {
                 </Grid>
                 
                 <Grid item xs={12}>
-                  <Box sx={{ mt: 3 }}>
+                  <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
                     <Button
                       variant="contained"
                       color="primary"
@@ -935,61 +959,72 @@ function App() {
                     >
                       {loading ? <CircularProgress size={24} /> : "Assign Tasks"}
                     </Button>
-                    
-                    {error && (
-                      <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 1, color: 'error.dark' }}>
-                        <Typography variant="body2" component="span">{error}</Typography>
-                        <Button 
-                          variant="text" 
-                          color="error" 
-                          onClick={() => setError(null)} 
-                          size="small"
-                          sx={{ mt: 1 }}
-                        >
-                          Dismiss
-                        </Button>
-                      </Box>
-                    )}
-                    
-                    {(!tasks.length || !teamMembers.length) && (
-                      <Typography variant="body2" component="span" color="error" sx={{ mt: 1 }}>
-                        {!tasks.length ? "No tasks available. Please generate tasks first." : ""}
-                        {!teamMembers.length ? "No team members available. Please add team members first." : ""}
-                      </Typography>
-                    )}
-                    
-                    {tasks.length > 0 && (
-                      <Box sx={{ mt: 3 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                          Available Tasks:
-                        </Typography>
-                        <List>
-                          {tasks.map((task) => (
-                            <ListItem key={task.id}>
-                              <ListItemText
-                                primary={task.name}
-                                secondary={
-                                  <>
-                                    <Typography component="span" variant="body2">
-                                      Description: {task.description}
-                                    </Typography>
-                                    <br />
-                                    <Typography component="span" variant="body2">
-                                      Estimated Hours: {task.estimatedHours}
-                                    </Typography>
-                                    <br />
-                                    <Typography component="span" variant="body2">
-                                      Required Skills: {task.requiredSkills.join(', ')}
-                                    </Typography>
-                                  </>
-                                }
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Box>
-                    )}
+
+                    {/* Add new Jira button */}
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={handleJiraTaskCreation}
+                      disabled={loading || !tasks.length}
+                      startIcon={<AssignmentIcon />}
+                    >
+                      Add Tasks to Jira
+                    </Button>
                   </Box>
+                  
+                  {error && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 1, color: 'error.dark' }}>
+                      <Typography variant="body2" component="span">{error}</Typography>
+                      <Button 
+                        variant="text" 
+                        color="error" 
+                        onClick={() => setError(null)} 
+                        size="small"
+                        sx={{ mt: 1 }}
+                      >
+                        Dismiss
+                      </Button>
+                    </Box>
+                  )}
+                  
+                  {(!tasks.length || !teamMembers.length) && (
+                    <Typography variant="body2" component="span" color="error" sx={{ mt: 1 }}>
+                      {!tasks.length ? "No tasks available. Please generate tasks first." : ""}
+                      {!teamMembers.length ? "No team members available. Please add team members first." : ""}
+                    </Typography>
+                  )}
+                  
+                  {tasks.length > 0 && (
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Available Tasks:
+                      </Typography>
+                      <List>
+                        {tasks.map((task) => (
+                          <ListItem key={task.id}>
+                            <ListItemText
+                              primary={task.name}
+                              secondary={
+                                <>
+                                  <Typography component="span" variant="body2">
+                                    Description: {task.description}
+                                  </Typography>
+                                  <br />
+                                  <Typography component="span" variant="body2">
+                                    Estimated Hours: {task.estimatedHours}
+                                  </Typography>
+                                  <br />
+                                  <Typography component="span" variant="body2">
+                                    Required Skills: {task.requiredSkills.join(', ')}
+                                  </Typography>
+                                </>
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
                 </Grid>
               </Grid>
             </Paper>

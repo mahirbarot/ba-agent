@@ -5,6 +5,7 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { Groq } from 'groq-sdk';
+import axios from 'axios';
 
 import express from 'express';
 import cors from 'cors';
@@ -491,26 +492,229 @@ app.post('/api/assign-tasks', async (req, res) => {
   }
 });
 
+// Add Jira configuration
+// const JIRA_CONFIG = {
+//   domain: process.env.JIRA_DOMAIN || "https://mahir-barot.atlassian.net",
+//   email: process.env.JIRA_EMAIL || "mahircodes@gmail.com",
+//   apiToken: process.env.JIRA_API_TOKEN || "ATATT3xFfGF0R-NRGLPmZWXoiyZTVpGSq20ImKa0KvsU1rwh_x1eQW7QPuFbMW_pPqNA8eYlfsXagoIuVpt1R9PauOla4CmXCsk1h5yR5EE4ytQAZxgvkQTGVJ_7z6mdk3rpCTMm41rMJBvyj0qm4BWkAVNmBmlGK3qV-LAbQ=88DE829A",
+//   projectKey: process.env.JIRA_PROJECT_KEY || "SCRUM"
+// };
+
+// Update the create-jira-tasks endpoint to be simpler
+// app.post('/api/create-jira-tasks', async (req, res) => {
+//   try {
+//     const { tasks } = req.body;
+    
+//     if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+//       return res.status(400).json({ 
+//         success: false,
+//         error: 'Valid tasks array is required' 
+//       });
+//     }
+
+//     console.log(`Attempting to create ${tasks.length} Jira tasks`);
+    
+//     const createdTasks = [];
+//     const errors = [];
+
+//     // Create tasks in Jira (one by one to handle individual failures)
+//     for (const task of tasks) {
+//       try {
+//         const taskName = task.name || "Unnamed Task";
+//         console.log(`Creating Jira task: ${taskName}`);
+        
+//         // Simple description
+//         const description = {
+//           "version": 1,
+//           "type": "doc",
+//           "content": [
+//             {
+//               "type": "paragraph",
+//               "content": [
+//                 {
+//                   "type": "text",
+//                   "text": "Auto-created task from BA Agent"
+//                 }
+//               ]
+//             }
+//           ]
+//         };
+        
+//         // Simplified payload with just the task name/summary
+//         const payload = {
+//           fields: {
+//             project: { key: JIRA_CONFIG.projectKey },
+//             summary: taskName,
+//             description: description,
+//             issuetype: { name: "Task" }
+//           }
+//         };
+        
+//         console.log('Request payload:', JSON.stringify(payload, null, 2));
+        
+//         const response = await axios.post(
+//           `${JIRA_CONFIG.domain}/rest/api/3/issue`,
+//           payload,
+//           {
+//             auth: {
+//               username: JIRA_CONFIG.email,
+//               password: JIRA_CONFIG.apiToken
+//             },
+//             headers: {
+//               "Accept": "application/json",
+//               "Content-Type": "application/json"
+//             }
+//           }
+//         );
+
+//         console.log(`Task created successfully: ${taskName}`);
+        
+//         createdTasks.push({
+//           name: taskName,
+//           jiraId: response.data.id,
+//           jiraKey: response.data.key,
+//           self: response.data.self
+//         });
+//       } catch (error) {
+//         console.error(`Error creating Jira task for "${task.name}":`, error.message);
+//         if (error.response) {
+//           console.error('Response status:', error.response.status);
+//           console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+//         }
+        
+//         errors.push({
+//           taskName: task.name,
+//           error: error.message
+//         });
+//       }
+//     }
+
+//     // Return success even if some tasks failed
+//     res.json({
+//       success: true,
+//       createdCount: createdTasks.length,
+//       failedCount: errors.length,
+//       createdTasks,
+//       errors: errors.length > 0 ? errors : []
+//     });
+//   } catch (error) {
+//     console.error('Error creating Jira tasks:', error.message);
+//     res.status(500).json({ 
+//       success: false,
+//       error: error.message 
+//     });
+//   }
+// });
+
+// Jira API credentials - hardcoded for debugging
+const jiraDomain = "https://mahir-barot.atlassian.net";
+const email = "mahircodes@gmail.com";
+const apiToken = "ATATT3xFfGF0R-NRGLPmZWXoiyZTVpGSPjmF3ehCnBVPqSq20ImKa0KvsU1rwh_x1eQW7QPuFbMW_pPqNA8eYlfsXagoIuVpt1R9PauOla4CmXCsk1h5yR5EE4ytQAZxgvkQTGVJ_7z6mdk3rpCTMm41rMJBvyj0qm4BWkAVNmBmlGK3qV-LAbQ=88DE829A";
+const projectKey = "SCRUM";
+
+// Create Jira task endpoint
 app.post('/api/create-jira-tasks', async (req, res) => {
   try {
-    const { assignedTasks, projectKey } = req.body;
+    const { tasks } = req.body;
     
-    // In a real implementation, this would connect to the Jira API
-    // For demo purposes, we're simulating the response
-    const jiraTasks = assignedTasks.map(task => ({
-      id: `${projectKey}-${task.id}`,
-      summary: task.name,
-      description: task.description,
-      assignee: task.assignedTo,
-      estimatedHours: task.estimatedHours,
-      status: "To Do",
-      created: new Date().toISOString()
-    }));
+    if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Valid tasks array is required' 
+      });
+    }
+
+    console.log(`Attempting to create ${tasks.length} Jira tasks`);
     
-    res.json(jiraTasks);
+    const createdTasks = [];
+    const errors = [];
+
+    // Create tasks in Jira (one by one to handle individual failures)
+    for (const task of tasks) {
+      try {
+        const taskName = task.name || "Unnamed Task";
+        console.log(`Creating Jira task: ${taskName}`);
+        
+        // Simple description
+        const description = {
+          "version": 1,
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": task.description || "Auto-created task from BA Agent"
+                }
+              ]
+            }
+          ]
+        };
+        
+        // Simplified payload with task name/summary
+        const payload = {
+          fields: {
+            project: { key: projectKey },
+            summary: taskName,
+            description: description,
+            issuetype: { name: "Task" }
+          }
+        };
+        
+        console.log('Request payload:', JSON.stringify(payload, null, 2));
+        
+        const response = await axios.post(
+          `${jiraDomain}/rest/api/3/issue`,
+          payload,
+          {
+            auth: {
+              username: email,
+              password: apiToken
+            },
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            }
+          }
+        );
+
+        console.log(`Task created successfully: ${taskName}`);
+        
+        createdTasks.push({
+          name: taskName,
+          jiraId: response.data.id,
+          jiraKey: response.data.key,
+          self: response.data.self
+        });
+      } catch (error) {
+        console.error(`Error creating Jira task for "${task.name}":`, error.message);
+        if (error.response) {
+          console.error('Response status:', error.response.status);
+          console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+        }
+        
+        errors.push({
+          taskName: task.name,
+          error: error.message
+        });
+      }
+    }
+
+    // Return success even if some tasks failed
+    res.json({
+      success: true,
+      createdCount: createdTasks.length,
+      failedCount: errors.length,
+      createdTasks,
+      errors: errors.length > 0 ? errors : []
+    });
   } catch (error) {
-    console.error('Error creating Jira tasks:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error creating Jira tasks:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 });
 
