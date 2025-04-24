@@ -34,6 +34,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import apiClient from './services/api';
 import AIVideoInterface from './components/AIVideoInterface';
 import NaturalTextToSpeech from './components/NaturalTextToSpeech';
+import PlantUMLDiagram from './components/PlantUMLDiagram';
 
 const getDesignTokens = (mode) => ({
   palette: {
@@ -659,14 +660,7 @@ function App() {
                                   <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main }}>
                                     {diagram.name}
                                   </Typography>
-                                  <Typography variant="body1" component="pre" sx={{ 
-                                    whiteSpace: 'pre-wrap',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.9rem',
-                                    lineHeight: 1.6
-                                  }}>
-                                    {diagram.content}
-                                  </Typography>
+                                  <PlantUMLDiagram plantUMLCode={diagram.content} />
                                 </Box>
                               ))
                             ) : (

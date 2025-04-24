@@ -26,39 +26,94 @@ const groq = new Groq({
 
 // Document Generation Chain
 const documentGenerationPrompt = PromptTemplate.fromTemplate(`
-You are an expert business analyst and technical writer. Based on the following business requirements, 
-create comprehensive documentation including:
-1. Software Requirements Specification (SRS)
-2. Functional Requirements Document (FRD)
-3. Business Requirements Document (BRD)
-4. UML Diagrams (described in text format that could be converted to diagrams)
 
-Business Requirements:
-{requirements}
-
-You must respond with ONLY a valid JSON object using the following structure (replace the placeholder values with actual content):
-
-RESPONSE FORMAT:
-{{
-  "srs": "<detailed SRS document content>",
-  "frd": "<detailed FRD document content>",
-  "brd": "<detailed BRD document content>",
-  "umlDiagrams": [
-    {{
-      "name": "<diagram name>",
-      "content": "<detailed diagram description>"
-    }}
-  ]
-}}
-
-Important: 
-1. Do not include any text outside the JSON object
-2. Ensure all strings are properly escaped
-3. Use double quotes for all keys and string values
-4. Make the response a single, valid JSON object
-5. Replace all placeholder text (including < and > characters) with actual content
-`);
-
+  You are an expert business analyst and technical writer. Based on the following business requirements,
+  
+  create comprehensive documentation including:
+  
+  1. Software Requirements Specification (SRS)
+  
+  2. Functional Requirements Document (FRD)
+  
+  3. Business Requirements Document (BRD)
+  
+  4. UML Diagrams in PlantUML format
+   
+  Business Requirements:
+  
+  {requirements}
+   
+  You must respond with ONLY a valid JSON object using the following structure (replace the placeholder values with actual content):
+   
+  RESPONSE FORMAT:
+  
+  {{
+  
+    "srs": "<detailed SRS document content>",
+  
+    "frd": "<detailed FRD document content>",
+  
+    "brd": "<detailed BRD document content>",
+  
+    "umlDiagrams": [
+  
+      {{
+  
+        "name": "User Management Class Diagram",
+  
+        "type": "class",
+  
+        "content": "@startuml\\npackage \\"User Management\\" {{\\n  class User {{\\n    -id: UUID\\n    -username: String\\n    -email: String\\n    -password: String\\n    +login()\\n    +logout()\\n    +updateProfile()\\n  }}\\n  class UserProfile {{\\n    -userId: UUID\\n    -firstName: String\\n    -lastName: String\\n    +getFullName()\\n  }}\\n  User -- UserProfile\\n}}\\n@enduml"
+  
+      }},
+  
+      {{
+  
+        "name": "Login Sequence Diagram",
+  
+        "type": "sequence",
+  
+        "content": "@startuml\\nactor User\\nparticipant Frontend\\nparticipant AuthService\\nparticipant Database\\n\\nUser -> Frontend: Enter credentials\\nFrontend -> AuthService: login(username, password)\\nAuthService -> Database: validateCredentials()\\nDatabase --> AuthService: validation result\\nAuthService --> Frontend: authentication token\\nFrontend --> User: Show dashboard\\n@enduml"
+  
+      }}
+  
+    ]
+  
+  }}
+   
+  Important:
+  
+  1. Do not include any text outside the JSON object
+  
+  2. Ensure all strings are properly escaped
+  
+  3. Use double quotes for all keys and string values
+  
+  4. Make the response a single, valid JSON object
+  
+  5. For PlantUML diagrams:
+  
+     - Always start with @startuml and end with @enduml
+  
+     - Use proper PlantUML syntax for the specified diagram type
+  
+     - Include all necessary relationships and elements
+  
+     - Use proper indentation and spacing
+  
+     - Escape special characters properly (use \\n for newlines)
+  
+     - Do not include any markdown or other formatting
+  
+     - The content should be directly compilable by a PlantUML processor
+  
+     - Follow the example format shown above
+  
+  6. Replace all placeholder text (including < and > characters) with actual content
+  
+  `);
+  
+   
 // Helper function to repair common JSON issues
 function repairJSON(str) {
   // Remove any XML-like or markdown tags
